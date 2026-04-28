@@ -18,8 +18,8 @@ function fmt(amount) {
 
 // ── 명령어 파싱 ─────────────────────────────────────────────
 function parseLipsCommand(text) {
-  // /lips 또는 !lips 접두사 제거
-  text = text.replace(/^[!/]?\s*lips\s*/i, '').trim();
+  // /lips 또는 !lips 접두사 제거 (LIPS1의 LIPS는 건드리지 않음)
+  text = text.replace(/^[!/]?\s*lips(?=\s|$)/i, '').trim();
 
   const m1 = text.match(
     /LIPS\s*1[^\d]*(\d+)\s*개[^\d,]*([\d.,]+\s*(?:억|만)[원]?)[^,LIPS]*?(?:기업가형\s*(\d+))?/i
