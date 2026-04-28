@@ -144,6 +144,9 @@ const ERROR_MSG = `안녕하세요! LIPS 사업비 계산봇입니다. 🤖
 • LIPS2 스케일업: 기업 수, 기업당 배정금액 (상한 2억원)
 • 기업가형: 전체 중 기업가형 소상공인 합계 수`;
 
+// ── 허용 채널 설정 ──────────────────────────────────────────
+const ALLOWED_CHANNEL_ID = 'C08FY586YPR'; // #투자부문_립스
+
 // ── Cloudflare Worker 진입점 ────────────────────────────────
 export default {
   async fetch(request) {
@@ -155,6 +158,16 @@ export default {
     }
 
     const formData = await request.formData();
+    const channelId = formData.get('channel_id') || '';
+
+    // 허용된 채널 외에서 사용 시 본인에게만 보이는 안내 메시지 반환
+    if (channelId && channelId !== ALLOWED_CHANNEL_ID) {
+      return Response.json({
+        response_type: 'ephemeral',
+        text: '⚠️ `/lips` 명령어는 *#투자부문_립스* 채널에서만 사용할 수 있습니다.',
+      });
+    }
+
     const text = (formData.get('text') || '').trim();
 
     if (!text) {
