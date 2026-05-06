@@ -190,8 +190,8 @@ export default {
       if (body.type === 'event_callback' && body.event?.type === 'message') {
         const event = body.event;
 
-        // 봇 자신의 메시지 무시 (무한루프 방지)
-        if (event.bot_id || event.subtype) {
+        // 봇 자신의 메시지 허용 (무한루프 문제 없음)
+        if (event.subtype && event.subtype !== 'bot_message') {
           return new Response('OK');
         }
 
