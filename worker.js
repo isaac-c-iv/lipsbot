@@ -19,31 +19,58 @@ function fmt(amount) {
 
 // ── 명령어 파싱 ─────────────────────────────────────────────
 function parseLipsCommand(text) {
-  // /lips 또는 !lips 접두사 제거 (LIPS1의 LIPS는 건드리지 않음)
-  text = text.replace(/^[!/]?\s*lips(?=\s|$)/i, '').trim();
+  // !lips 또는 /lips 접두사 제거
+  text = text.replace(/^[!/]?\s*lips\s*/i, '').trim();
 
-  const m1 = text.match(
-    /LIPS\s*1[^\d]*(\d+)\s*개[^\d,]*([\d.,]+\s*(?:억|만)[원]?)(?:[^,]*?기업가형\s*(\d+))?/i
-  );
-  if (!m1) return null;
+  // 억/만 단위 금액 추출 (콤마 포함 숫자 지원)
+  function findAmount(str) {
+    const m = str.match(/([\d,]+(?:\.\d+)?)\s*(억|만)/);
+    if (!m) return null;
+    const num = parseFloat(m[1].replace(/,/g, ''));
+    return m[2] === '억' ? Math.round(num * 100_000_000) : Math.round(num * 10_000);
+  }
 
-  const lips1Count      = parseInt(m1[1]);
-  const lips1Amount     = parseAmount(m1[2]);
-  const lips1Enterprise = m1[3] ? parseInt(m1[3]) : 0;
+  // LIPS1 / LIPS2 섹션 분리
+  const l2Match = text.match(/LIPS\s*2/i);
+  const l2Pos   = l2Match ? l2Match.index : -1;
+  const lips1Str = l2Pos >= 0 ? text.slice(0, l2Pos) : text;
+  const lips2Str = l2Pos >= 0 ? text.slice(l2Pos)    : '';
+  if (!lips2Str) return null;
 
-  const ms = text.match(/시드\s*(\d+)\s*개[^\d,]*([\d.,]+\s*(?:억|만)[원]?)/i);
-  if (!ms) return null;
-  const seedCount      = parseInt(ms[1]);
-  const seedPerCompany = parseAmount(ms[2]);
+  // ── LIPS1 파싱 ──
+  const l1Match = lips1Str.match(/LIPS\s*1/i);
+  if (!l1Match) return null;
+  const l1Body = lips1Str.slice(l1Match.index + l1Match[0].length);
 
-  const mu = text.match(/스케일업\s*(\d+)\s*개[^\d,]*([\d.,]+\s*(?:억|만)[원]?)/i);
-  if (!mu) return null;
-  const scaleupCount      = parseInt(mu[1]);
-  const scaleupPerCompany = parseAmount(mu[2]);
+  const l1CntM = l1Body.match(/(\d+)\s*개/);
+  if (!l1CntM) return null;
+  const lips1Count  = parseInt(l1CntM[1]);
+  const lips1Amount = findAmount(l1Body);
+  if (!lips1Amount) return null;
 
-  const lips2Section    = text.slice(m1.index + m1[0].length);
-  const me              = lips2Section.match(/기업가형\s*(\d+)/i);
-  const lips2Enterprise = me ? parseInt(me[1]) : 0;
+  const ent1M           = l1Body.match(/기업가형\s*(\d+)/i);
+  const lips1Enterprise = ent1M ? parseInt(ent1M[1]) : 0;
+
+  // ── LIPS2 시드 파싱 ──
+  const seedM = lips2Str.match(/시드\s*(\d+)\s*개/i);
+  if (!seedM) return null;
+  const seedCount  = parseInt(seedM[1]);
+  const afterSeed  = lips2Str.slice(seedM.index + seedM[0].length)
+                              .replace(/^\s*시드\s*/i, '');
+  const seedPerCompany = findAmount(afterSeed);
+  if (!seedPerCompany) return null;
+
+  // ── LIPS2 스케일업 파싱 ──
+  const scaleM = lips2Str.match(/스케일업\s*(\d+)\s*개/i);
+  if (!scaleM) return null;
+  const scaleupCount = parseInt(scaleM[1]);
+  const afterScale   = lips2Str.slice(scaleM.index + scaleM[0].length);
+  const scaleupPerCompany = findAmount(afterScale);
+  if (!scaleupPerCompany) return null;
+
+  // ── LIPS2 기업가형 ──
+  const ent2M           = lips2Str.match(/기업가형\s*(\d+)/i);
+  const lips2Enterprise = ent2M ? parseInt(ent2M[1]) : 0;
 
   if (!lips1Amount || !seedPerCompany || !scaleupPerCompany) return null;
 
@@ -115,10 +142,10 @@ const ERROR_MSG = `안녕하세요! LIPS 사업비 계산봇입니다. 🤖
 \`!lips LIPS1 2개사 10억원 기업가형1개, LIPS2 시드2개 8000만원 스케일업3개 1.8억원 기업가형2개\`
 
 *항목 설명:*
-• LIPS1: 매칭기업 수, 총 융자 집행금액, 기업가형 소상공인 수
-• LIPS2 시드: 기업 수, 기업당 배정금액 (상한 1억원)
-• LIPS2 스케일업: 기업 수, 기업당 배정금액 (상한 2억원)
-• 기업가형: 전체 중 기업가형 소상공인 합계 수`;
+- LIPS1: 매칭기업 수, 총 융자 집행금액, 기업가형 소상공인 수
+- LIPS2 시드: 기업 수, 기업당 배정금액 (상한 1억원)
+- LIPS2 스케일업: 기업 수, 기업당 배정금액 (상한 2억원)
+- 기업가형: 전체 중 기업가형 소상공인 합계 수`;
 
 // ── 허용 채널 설정 ──────────────────────────────────────────
 const ALLOWED_CHANNEL_ID = 'C08FY586YPR'; // #투자부문_립스
